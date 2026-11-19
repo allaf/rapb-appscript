@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <base target="_top">
+
+    <style>
+      body {
+        margin: 0;
+        padding: 24px;
+        font-family: Arial, sans-serif;
+        color: #263238;
+      }
+
+      h2 {
+        margin: 0 0 8px;
+        font-size: 20px;
+      }
+
+      p {
+        margin: 0 0 18px;
+        color: #546e7a;
+        font-size: 14px;
+        line-height: 1.4;
+      }
+
+      input[type='file'] {
+        display: block;
+        width: 100%;
+        margin-bottom: 20px;
+      }
+
+      button {
+        border: 0;
+        border-radius: 4px;
+        padding: 10px 18px;
+        background: #176b52;
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        cursor: wait;
+        opacity: 0.6;
+      }
+
+      #status {
+        margin-top: 18px;
+        font-size: 14px;
+        white-space: pre-line;
+      }
+
+      .error {
+        color: #b3261e;
+      }
+
+      .success {
+        color: #176b52;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h2>Importer une inscription</h2>
+
+    <p>
+      Onglet cible :
+      <strong><?= sheetName ?></strong>
+    </p>
+
+    <form id="importForm">
+      <input
+        type="hidden"
+        name="sheetId"
+        value="<?= sheetId ?>"
+      >
+
+      <input
+        id="pdfFile"
+        name="pdfFile"
+        type="file"
+        accept="application/pdf,.pdf"
+        required
+      >
+
+      <button id="submitButton" type="submit">
+        Importer le PDF
+      </button>
+    </form>
+
+    <div id="status"></div>
+
+<script>
+  const form = document.getElementById('importForm');
+
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+
+    const button =
+      document.getElementById('submitButton');
+    const status =
+      document.getElementById('status');
+    const fileInput =
+      document.getElementById('pdfFile');
+    const file = fileInput.files[0];
+
+    if (!file) {
+      showError('Sélectionne un fichier PDF.');
+      return;
+    }
+
+    if (
+      !file.name.toLowerCase().endsWith('.pdf')
+    ) {
+      showError(
+        'Le fichier sélectionné doit être un PDF.'
+      );
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = 'Lecture du PDF…';
+    status.className = '';
+    status.textContent = 'Préparation du fichier…';
+
+    const reader = new FileReader();
+
+    reader.onerror = function () {
+      showError(
+        'Impossible de lire le fichier sélectionné.'
+      );
+      resetButton();
+    };
+
+    reader.onload = function () {
+      const dataUrl = String(reader.result);
+      const commaPosition = dataUrl.indexOf(',');
+
+      if (commaPosition === -1) {
+        showError('Contenu du PDF invalide.');
+        resetButton();
+        return;
+      }
+
+      status.textContent =
+        'Envoi et analyse du PDF…';
+      button.textContent = 'Import en cours…';
+
+      google.script.run
+        .withSuccessHandler(onImportSuccess)
+        .withFailureHandler(onImportFailure)
+        .importRegistrationPdf({
+          sheetId:
+            document.querySelector(
+              '[name="sheetId"]'
+            ).value,
+          fileName: file.name,
+          mimeType:
+            file.type || 'application/pdf',
+          base64: dataUrl.substring(
+            commaPosition + 1
+          )
+        });
+    };
+
+    reader.readAsDataURL(file);
+
+    function onImportSuccess(result) {
+      const action = result.created
+        ? 'Nouvelle ligne créée'
+        : 'Ligne existante complétée';
+
+      const amount =
+        result.amount !== null
+          ? `\nCotisation : ${result.amount} €`
+          : '\nCotisation non remplie';
+
+      status.className = 'success';
+      status.textContent =
+        `${result.firstName} ${result.lastName}` +
+        `\nTableau : ${result.section}` +
+        `\nLigne : ${result.row}` +
+        `\n${action}` +
+        amount;
+
+      button.textContent = 'Terminé';
+
+      setTimeout(function () {
+        google.script.host.close();
+      }, 3000);
+    }
+
+    function onImportFailure(error) {
+      showError(
+        error && error.message
+          ? error.message
+          : 'Erreur inconnue pendant l’import.'
+      );
+
+      resetButton();
+    }
+
+    function showError(message) {
+      status.className = 'error';
+      status.textContent = `Erreur : ${message}`;
+    }
+
+    function resetButton() {
+      button.disabled = false;
+      button.textContent = 'Réessayer';
+    }
+  });
+</script>
+  </body>
+</html>
