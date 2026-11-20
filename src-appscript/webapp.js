@@ -153,39 +153,32 @@ function jsonResponse_(data) {
 
 
 function completePalmaresResponse_(data) {
-  const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
+  const job = findPalmaresJobByRequestId_(data.requestId);
 
-  try {
-    const job = findPalmaresJobByRequestId_(data.requestId);
-
-    if (!job) {
-      throw new Error('Demande de palmarès introuvable.');
-    }
-
-    if (!['PENDING', 'PROCESSING'].includes(job.status)) {
-      throw new Error(`La demande est déjà ${job.status}.`);
-    }
-
-    if (String(job.userId) !== String(data.userId)) {
-      throw new Error('Le licencié ne correspond pas à la demande.');
-    }
-
-    const palmares = String(data.palmares || '').trim();
-
-    if (!palmares) {
-      throw new Error('Le palmarès reçu est vide.');
-    }
-
-    completePalmaresJob_(job, palmares);
-
-    return jsonResponse_({
-      success: true,
-      requestId: job.requestId,
-      userId: job.userId,
-      palmares
-    });
-  } finally {
-    lock.releaseLock();
+  if (!job) {
+    throw new Error('Demande de palmarès introuvable.');
   }
+
+  if (!['PENDING', 'PROCESSING'].includes(job.status)) {
+    throw new Error(`La demande est déjà ${job.status}.`);
+  }
+
+  if (String(job.userId) !== String(data.userId)) {
+    throw new Error('Le licencié ne correspond pas à la demande.');
+  }
+
+  const palmares = String(data.palmares || '').trim();
+
+  if (!palmares) {
+    throw new Error('Le palmarès reçu est vide.');
+  }
+
+  completePalmaresJob_(job, palmares);
+
+  return jsonResponse_({
+    success: true,
+    requestId: job.requestId,
+    userId: job.userId,
+    palmares
+  });
 }
