@@ -23,6 +23,10 @@ function onOpen() {
     .addItem('Importer un PDF', 'showPdfImportDialog')
     .addItem('Préparer inscription FFB', 'prepareFfbRegistration'   )
     .addToUi();
+  
+  ui.createMenu('Palmarès')
+    .addItem('Récupérer les palmarès', 'requestPalmaresForSheet')
+    .addToUi();
 
 }
 
