@@ -19,6 +19,13 @@ function doGet(e) {
       });
     }
 
+    if (action === 'pendingPalmares') {
+      return jsonResponse_({
+        success: true,
+        jobs: listPendingPalmaresJobs_()
+      });
+    }
+
     throw new Error(`Action GET inconnue : ${action}`);
   } catch (error) {
     return jsonResponse_({
@@ -56,6 +63,22 @@ function doPost(e) {
 
     if (data.action === 'failJob') {
       failJob_(data.requestId, data.error);
+      return jsonResponse_({ success: true });
+    }
+
+    if (data.action === 'claimPalmares') {
+      return jsonResponse_({
+        success: true,
+        job: claimPalmaresJob_(data.requestId)
+      });
+    }
+
+    if (data.action === 'completePalmares') {
+      return completePalmaresResponse_(data);
+    }
+
+    if (data.action === 'failPalmares') {
+      failPalmaresJob_(data.requestId, data.error);
       return jsonResponse_({ success: true });
     }
 
@@ -126,4 +149,43 @@ function jsonResponse_(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+
+function completePalmaresResponse_(data) {
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+
+  try {
+    const job = findPalmaresJobByRequestId_(data.requestId);
+
+    if (!job) {
+      throw new Error('Demande de palmarès introuvable.');
+    }
+
+    if (!['PENDING', 'PROCESSING'].includes(job.status)) {
+      throw new Error(`La demande est déjà ${job.status}.`);
+    }
+
+    if (String(job.userId) !== String(data.userId)) {
+      throw new Error('Le licencié ne correspond pas à la demande.');
+    }
+
+    const palmares = String(data.palmares || '').trim();
+
+    if (!palmares) {
+      throw new Error('Le palmarès reçu est vide.');
+    }
+
+    completePalmaresJob_(job, palmares);
+
+    return jsonResponse_({
+      success: true,
+      requestId: job.requestId,
+      userId: job.userId,
+      palmares
+    });
+  } finally {
+    lock.releaseLock();
+  }
 }
