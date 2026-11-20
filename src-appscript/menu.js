@@ -71,6 +71,7 @@ function setupProject() {
     SpreadsheetApp.getActive().getId()
   );
   ensureQueueSheet_();
+  ensurePalmaresQueueSheet_();
   const token = getOrCreateApiToken_();
 
   SpreadsheetApp.getUi().alert(
